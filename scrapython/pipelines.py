@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import json
+# import json
 
 
 # Define your item pipelines here
@@ -9,20 +9,12 @@ import json
 
 # /!\ Visiblement, les pipelines osnt plutôt à privilégier pour un stockage dans uen database, on passe par Feed Exports pour écriture dans un JSON /!\
 
-class ScrapythonPipeline(object):
-
-    def __init__(self):
-        print("######### INITIALISATION DU PIPELINE ########")
-
-    def process_item(self, item, spider):
-
-        print ("########### PASSE PAR LE PROCESS ITEM ########### ")
-
-        if item.get('author') :
-            print ("########### AUTHOR DETECTED ########### ")
-            return item
-        else :
-            print ("########### NO AUTHOR DETECTED ###########")
-
-        return item
+# class ScrapythonPipeline(object):
+#
+#     def __init__(self):
+#         print("######### INITIALISATION DU PIPELINE ########")
+#
+#     def process_item(self, item, spider):
+#
+#         return item
 

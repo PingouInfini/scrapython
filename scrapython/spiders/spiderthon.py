@@ -1,12 +1,13 @@
 import scrapy
-from scrapython.items import ScrapythonItem
 from bs4 import BeautifulSoup
+
+from scrapython.items import ScrapythonItem
 
 class spiderthon(scrapy.Spider):
     name = "spiderthon"
-    start_urls = [
-        'http://rosecitron.fr/2019/03/20/cookies-veganes-chocolat-praline/'
-    ]
+
+    with open("urls_list_file.txt", "rt") as urls_file:
+        start_urls = [url.strip() for url in urls_file.readlines()]
 
     # Méthode qui parse chaque url à crawler, fournie ci-dessus
     def parse(self, response):
@@ -16,7 +17,7 @@ class spiderthon(scrapy.Spider):
             just_text = soup.get_text()
             yield ScrapythonItem(title=just_text)
 
-        for (txt) in response.xpath('//p').getall():
+        for (txt) in response.xpath('//p | //span').getall():
             soup = BeautifulSoup(txt, 'html.parser')
             just_text = soup.get_text()
             yield ScrapythonItem(text=just_text)
@@ -24,10 +25,9 @@ class spiderthon(scrapy.Spider):
         for href in response.xpath('//a/@href').getall():
             yield ScrapythonItem(urls=href)
 
-        page = response.url.split("/")[-2]
-        filename = 'quotes-%s.html' % page
-        with open(filename, 'wb') as f:
-            f.write(response.body)
-        self.log('Saved file %s' % filename)
-
-
+            # Décommenter si l'on veut télécharger les pages HTML associées aux URLs
+            # page = response.url.split("/")[-2]
+            # filename = 'quotes-%s.html' % page
+            # with open(filename, 'wb') as f:
+            #     f.write(response.body)
+            # self.log('Saved file %s' % filename)
