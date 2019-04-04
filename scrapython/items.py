@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from scrapy.item import Item, Field
 
 # Define here the models for your scraped items
 #
@@ -7,11 +8,11 @@
 
 import scrapy
 
-class ScrapythonItem(scrapy.Item):
+class ScrapythonItem(Item):
     # define the fields for your item here like:
     # name = scrapy.Field()
-    author = scrapy.Field()
+    title = scrapy.Field()
     text = scrapy.Field()
-    tags = scrapy.Field()
-
+    urls = scrapy.Field()
+    author = scrapy.Field()
 #    pass
