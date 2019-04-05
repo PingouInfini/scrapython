@@ -1,13 +1,16 @@
 import scrapy
 from bs4 import BeautifulSoup
+import os
 
 from scrapython.items import ScrapythonItem
 
 class spiderthon(scrapy.Spider):
     name = "spiderthon"
 
-    with open("urls_list_file.txt", "rt") as urls_file:
-        start_urls = [url.strip() for url in urls_file.readlines()]
+    def __init__(self, filename=None):
+        if filename:
+            with open(filename, 'r') as f:
+                self.start_urls = f.readlines()
 
     # Méthode qui parse chaque url à crawler, fournie ci-dessus
     def parse(self, response):
