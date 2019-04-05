@@ -1,3 +1,27 @@
+######################
+# Intellij
+######################
+.idea/
+*.iml
+*.iws
+*.ipr
+*.ids
+*.orig
+classes/
+out/
+
+######################
+# virtualenv
+######################
+*virtual*env/
+
+######################
+# Scrapython specific
+######################
+*.html
+*.json
+*.txt
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -102,7 +126,3 @@ venv.bak/
 
 # mypy
 .mypy_cache/
-
-*.html
-*.json
-*.txt
