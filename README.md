@@ -1,23 +1,15 @@
 # scrapython
 1- Créer un virtualenv spécifique au projet et l'activer
 
-2- Installation de la lib Scrapy
+2- Installation des librairies
 
-    pip install scrapy
-
-3- Installation de la lib Py32Win
-
-    pip install pypiwin32
+    pip install -r requirements.txt
     
-4 - Installation de la lib Beautiful Soup
-    
-    pip install bs4
-    
-5 - Lancement : 
+3 - Lancement : 
     
     scrap_entry_point.py "<candidate>" "<path/to/Urls_List_File.txt>"
     
-6 - Retour d'un fichier results.json qui comporte du contenu extrait des pages HTML :  
+4 - Retour d'un fichier results.json qui comporte du contenu extrait des pages HTML :  
 * les titres (\<h1-6\>)
 * le texte (\<p\>, \<span\>)
 * les urls 
@@ -25,4 +17,4 @@
 
 #####Fonctionnement général : 
 Le fichier .txt à fournir ne doit comporter QUE des urls.
-Les résultats sont retournés dans un fichier jso
+Les résultats sont retournés dans un fichier json "crawling_results_for_\<Candidate\>.json"
