@@ -2,7 +2,7 @@ import scrapy
 from bs4 import BeautifulSoup
 import os
 
-from scrapython.items import ScrapythonItem
+from scrapython.common.items import ScrapythonItem
 
 class spiderthon(scrapy.Spider):
     name = "spiderthon"
