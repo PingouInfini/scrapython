@@ -1,10 +1,11 @@
 import os
 import sys
 import shutil
+import common.settings as my_settings
+import common.spiders.spiderthon as spiderthon
 from scrapy.crawler import CrawlerProcess
 from scrapy.settings import Settings
-from scrapython.common import settings as my_settings
-from scrapython.common.spiders import spiderthon
+
 
 #Suppression de l'ancien fichier de récupération des résultats du crawl des urls fournies
 #Ce fichier est en effet créé à chaque run du script, ou complété (et on ne veut pas que les données deux deux scripts se suivent)
