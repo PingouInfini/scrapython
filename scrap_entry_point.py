@@ -15,14 +15,13 @@ from twisted.internet.defer import inlineCallbacks
 from common import settings as my_settings
 from common.spiders import spiderthon
 
+# gére le reactor de scrapy dans un thread différent
 setup()
 
 parser = ArgumentParser(description='Retrieving Google URL python script')
 
-parser.add_argument("-n", "--name", dest="name", action="store", default="10",
-                    help="Name of the candidate")
-parser.add_argument("-s", "--only_standard", dest="standard", action="store", default="True",
-                    help="True for only standard url, false for every single url in the google page")
+parser.add_argument("-c", "--complexity", dest="complexity", action="store", default="1",
+                    help="Complexity degree for the research, higher is deeper")
 parser.add_argument("-e", "--endpoint", dest="endpoint", action="store", default="localhost:8092",
                     help="Endpoint url for Kafka")
 parser.add_argument("-v", "--verbosity", action="store_true", help="show debug logs")
@@ -56,7 +55,7 @@ if results_file_exists:
 consumer = KafkaConsumer(
     'urlToScrapy',
     bootstrap_servers=options.endpoint,
-    group_id='scrapython', # TODO utile?
+    group_id='scrapython',
     auto_offset_reset='earliest',  # TODO à changer ?
     value_deserializer=lambda v: json.loads(v.decode('utf-8')))
 
@@ -71,33 +70,44 @@ crawler_settings.setmodule(my_settings)
 process = CrawlerProcess(settings=crawler_settings)
 
 for message in consumer:
-    logging.info("### Scrapython : reception d'un message ! ")
     message = message.value
-    scrapyResults = {'scrapyResults': []}
+    logging.info("### Scrapython : reception d'un message ! " + str(message))
+    scrapyResults = []
+    complexityLevel = 1
+    if 'complexity' not in message or (int(message['complexity']) <= int(options.complexity)):
+            for i in range(len(message['url'])):
+                urlList = []
+                urlList.append(message['url'][i])
 
-    for i in range(len(message['url'])):
-        urlList = []
-        urlList.append(message['url'][i])
+                loop_urls(urlList)
 
-        loop_urls(urlList)
+                while (scrapython_acq_ended == False):
+                    time.sleep(1)
+                scrapyResult = {}
+                if "results.json":  # TODO: changer le mode de sortie en stream
+                    textString = ''
 
-        for i in range(len(urlList)): # TODO vérifier si le for est util??
-            while (scrapython_acq_ended == False):
-                time.sleep(1)
-            scrapyResult = {}
-            if "results.json":  # TODO: changer le mode de sortie en stream
-                textString = ''
+                    with open("results.json", 'r') as f:
+                        data = json.load(f)
+                        for text in data:
 
-                with open("results.json", 'r') as f:
-                    data = json.load(f)
-                    for text in data:
-                        if next(iter(text)) == 'text':
-                            textString = textString + " " + text['text']
-                scrapyResult.update([('url', urlList[i]), ('content', textString)])
-                scrapyResults['scrapyResults'].append(scrapyResult)
+                            if next(iter(text)) == 'text':
+                                textString = textString + " " + text['text']
+                            elif next(iter(text)) == 'urls':
+                                if int(options.complexity) > 1:
+                                    if 'complexity' not in message:
+                                        complexityLevel = 2
+                                    else:
+                                        complexityLevel = int(message['complexity']) + 1
+                                producer.send(
+                                    'urlToScrapy',
+                                    value={'idBio': message['idBio'], 'url': message['url'], 'complexity': complexityLevel})
 
-        os.remove("results.json")
+                    scrapyResult.update([('url', urlList[0]), ('content', textString)])
+                    scrapyResults.append(scrapyResult)
 
-    producer.send(
-        'textToNER',
-        value={'idBio': message['idBio'], 'scrapyResults': scrapyResults})
+                os.remove("results.json")
+
+            producer.send(
+                'textToNER',
+                value={'idBio': message['idBio'], 'scrapyResults': scrapyResults})
