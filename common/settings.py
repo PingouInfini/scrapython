@@ -11,8 +11,8 @@
 
 BOT_NAME = 'scrapython'
 
-SPIDER_MODULES = ['scrapython.spiders']
-NEWSPIDER_MODULE = 'scrapython.spiders'
+SPIDER_MODULES = ['common.spiders']
+NEWSPIDER_MODULE = 'common.spiders'
 
 FEED_FORMAT = 'json'
 FEED_URI = 'results.json'
@@ -82,7 +82,7 @@ ROBOTSTXT_OBEY = True
 # each remote server
 #AUTOTHROTTLE_TARGET_CONCURRENCY = 1.0
 # Enable showing throttling stats for every response received:
-#AUTOTHROTTLE_DEBUG = False
+AUTOTHROTTLE_DEBUG = False
 
 # Enable and configure HTTP caching (disabled by default)
 # See https://doc.scrapy.org/en/latest/topics/downloader-middleware.html#httpcache-middleware-settings

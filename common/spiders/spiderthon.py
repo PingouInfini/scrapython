@@ -4,13 +4,14 @@ import os
 
 from common.items import ScrapythonItem
 
+
 class spiderthon(scrapy.Spider):
     name = "spiderthon"
 
     def __init__(self, filename=None):
-        if filename:
-            with open(filename, 'r') as f:
-                self.start_urls = f.readlines()
+        print(filename)
+        self.start_urls = filename
+
 
     # Méthode qui parse chaque url à crawler, fournie ci-dessus
     def parse(self, response):
