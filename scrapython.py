@@ -15,20 +15,31 @@ from twisted.internet.defer import inlineCallbacks
 from common import settings as my_settings
 from common.spiders import spiderthon
 
+
+
+#recuperation variable d'env
+kafka_endpoint = str(os.environ['KAFKA_IP']) + ":" + str(os.environ['KAFKA_PORT'])
+topic_in=str(os.environ['TOPIC_IN'])
+topic_out=str(os.environ['TOPIC_OUT'])
+complexity= int(os.environ['COMPLEXITY'])
+debug_level=os.environ["DEBUG"]
+
+
 # gére le reactor de scrapy dans un thread différent
 setup()
 
-parser = ArgumentParser(description='Retrieving Google URL python script')
 
-parser.add_argument("-c", "--complexity", dest="complexity", action="store", default="1",
-                    help="Complexity degree for the research, higher is deeper")
-parser.add_argument("-e", "--endpoint", dest="endpoint", action="store", default="localhost:8092",
-                    help="Endpoint url for Kafka")
-parser.add_argument("-v", "--verbosity", action="store_true", help="show debug logs")
-
-options = parser.parse_args()
-
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
+if debug_level == "DEBUG":
+       logging.basicConfig(level=logging.DEBUG)
+elif debug_level == "INFO":
+        logging.basicConfig(level=logging.INFO)
+elif debug_level == "WARNING":
+    logging.basicConfig(level=logging.WARNING)
+elif debug_level == "ERROR":
+    logging.basicConfig(level=logging.ERROR)
+elif debug_level == "CRITICAL":
+    logging.basicConfig(level=logging.CRITICAL)
 
 
 scrapython_acq_ended = False
@@ -53,15 +64,15 @@ if results_file_exists:
 
 # Set un consumer
 consumer = KafkaConsumer(
-    'urlToScrapy',
-    bootstrap_servers=options.endpoint,
+    topic_in,
+    bootstrap_servers=[kafka_endpoint],
     group_id='scrapython',
-    auto_offset_reset='earliest',  # TODO à changer ?
+    auto_offset_reset='latest',  # TODO à changer ?
     value_deserializer=lambda v: json.loads(v.decode('utf-8')))
 
 # Set un producer
 producer = KafkaProducer(
-    bootstrap_servers=options.endpoint,
+    bootstrap_servers=[kafka_endpoint],
     value_serializer=lambda v: json.dumps(v).encode('utf-8'))
 
 crawler_settings = Settings()
@@ -74,7 +85,7 @@ for message in consumer:
     logging.info("### Scrapython : reception d'un message ! " + str(message))
     scrapyResults = []
     complexityLevel = 1
-    if 'complexity' not in message or (int(message['complexity']) <= int(options.complexity)):
+    if 'complexity' not in message or (int(message['complexity']) <= int(complexity)):
             for i in range(len(message['url'])):
                 urlList = []
                 urlList.append(message['url'][i])
@@ -94,13 +105,14 @@ for message in consumer:
                             if next(iter(text)) == 'text':
                                 textString = textString + " " + text['text']
                             elif next(iter(text)) == 'urls':
-                                if int(options.complexity) > 1:
+                                if int(complexity) > 1:
                                     if 'complexity' not in message:
                                         complexityLevel = 2
                                     else:
                                         complexityLevel = int(message['complexity']) + 1
+                                #renvoi dans topic in pour retraitement par scrapython
                                 producer.send(
-                                    'urlToScrapy',
+                                    topic_in,
                                     value={'idBio': message['idBio'], 'url': message['url'], 'complexity': complexityLevel})
 
                     scrapyResult.update([('url', urlList[0]), ('content', textString)])
@@ -109,5 +121,5 @@ for message in consumer:
                 os.remove("results.json")
 
             producer.send(
-                'textToNER',
+                topic_out,
                 value={'idBio': message['idBio'], 'scrapyResults': scrapyResults})

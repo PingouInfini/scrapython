@@ -11,7 +11,7 @@ def main():
             'textToNER',
             bootstrap_servers='localhost:8092',
             group_id='consumer',
-            auto_offset_reset='earliest',
+            auto_offset_reset='latest',
             value_deserializer=lambda v: json.loads(v.decode('utf-8')))
         print(time.time())
         for message in consumer:
