@@ -1,0 +1,14 @@
+version: '3'
+services:
+    scrapython:
+        build:
+            context: ./context/
+        image: reachhubcorp/scrapython:latest
+        container_name: scrapython
+        environment:
+          KAFKA_IP: "${ipkafka}"
+          KAFKA_PORT: 8092
+          COMPLEXITY: 2
+          TOPIC_IN: urlToScrapy
+          TOPIC_OUT: textToNER
+          DEBUG_LEVEL: INFO

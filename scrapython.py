@@ -1,3 +1,5 @@
+# -*- coding:utf-8 -*-
+
 import json
 import logging
 import os
@@ -18,7 +20,7 @@ kafka_endpoint = str(os.environ['KAFKA_IP']) + ":" + str(os.environ['KAFKA_PORT'
 topic_in = str(os.environ['TOPIC_IN'])
 topic_out = str(os.environ['TOPIC_OUT'])
 complexity = int(os.environ['COMPLEXITY'])
-debug_level = os.environ["DEBUG"]
+debug_level = os.environ["DEBUG_LEVEL"]
 
 # gére le reactor de scrapy dans un thread différent
 setup()
@@ -88,10 +90,10 @@ for message in consumer:
             while (scrapython_acq_ended == False):
                 time.sleep(1)
             scrapyResult = {}
-            if "results.json":  # TODO: changer le mode de sortie en stream
+            if "results.json":  # TODO: changer le mod, encoding='utf-8'e de sortie en stream
                 textString = ''
 
-                with open("results.json", 'r') as f:
+                with open("results.json", 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     for text in data:
 
