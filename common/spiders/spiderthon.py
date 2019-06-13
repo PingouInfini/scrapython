@@ -12,7 +12,6 @@ class spiderthon(scrapy.Spider):
         print(filename)
         self.start_urls = filename
 
-
     # Méthode qui parse chaque url à crawler, fournie ci-dessus
     def parse(self, response):
 
@@ -30,7 +29,7 @@ class spiderthon(scrapy.Spider):
             yield ScrapythonItem(urls=href)
 
             # Décommenter si l'on veut télécharger les pages HTML associées aux URLs
-            # page = response.url.split("/")[-2]
+            # page = response.url.split("/")[-2] .re("^(http|https):\/\/")
             # filename = 'quotes-%s.html' % page
             # with open(filename, 'wb') as f:
             #     f.write(response.body)
