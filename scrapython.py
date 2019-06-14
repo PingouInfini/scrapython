@@ -26,7 +26,7 @@ debug_level = os.environ["DEBUG_LEVEL"]
 # kafka_endpoint = "localhost" + ":" + "8092"
 # topic_in = "urlToScrapy"
 # topic_out = "textToNER"
-# complexity = 2
+# complexity = 1
 # debug_level = "INFO"
 
 # gére le reactor de scrapy dans un thread différent
@@ -120,16 +120,16 @@ for message in consumer:
                                             complexityLevel = 2
                                         else:
                                             complexityLevel = int(message['complexity']) + 1
-                                    # si le resultat commence par un slash,
-                                    # on prend ce qu'il y a apres le slash et on le concatene à l'adresse urlCut
-                                    if re.match(rslash, text.get("urls", "")):
-                                        targetUrl = urlCut + "/" + text.get("urls", "").split("/", 1)[1]
-                                    # renvoie dans topic in pour retraitement par scrapython
+                                        # si le resultat commence par un slash,
+                                        # on prend ce qu'il y a apres le slash et on le concatene à l'adresse urlCut
+                                        if re.match(rslash, text.get("urls", "")):
+                                            targetUrl = urlCut + "/" + text.get("urls", "").split("/", 1)[1]
+                                        # renvoie dans topic in pour retraitement par scrapython
 
-                                    producer.send(
-                                        topic_in,
-                                        value={'idBio': message['idBio'], 'url': [targetUrl], 'nom': message['nom'],
-                                               'prenom': message['prenom'], 'complexity': complexityLevel})
+                                        producer.send(
+                                            topic_in,
+                                            value={'idBio': message['idBio'], 'url': [targetUrl], 'nom': message['nom'],
+                                                   'prenom': message['prenom'], 'complexity': complexityLevel})
                     except Exception as e:
                         logging.warning("got %s on json.load()" % e)
 
