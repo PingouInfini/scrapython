@@ -22,17 +22,17 @@ from common import settings as my_settings
 from common.spiders import spiderthon
 
 # recuperation variable d'env
-# kafka_endpoint = str(os.environ['KAFKA_IP']) + ":" + str(os.environ['KAFKA_PORT'])
-# topic_in = str(os.environ['TOPIC_IN'])
-# topic_out = str(os.environ['TOPIC_OUT'])
-# complexity = int(os.environ['COMPLEXITY'])
-# debug_level = os.environ["DEBUG_LEVEL"]
+kafka_endpoint = str(os.environ['KAFKA_IP']) + ":" + str(os.environ['KAFKA_PORT'])
+topic_in = str(os.environ['TOPIC_IN'])
+topic_out = str(os.environ['TOPIC_OUT'])
+complexity = int(os.environ['COMPLEXITY'])
+debug_level = os.environ["DEBUG_LEVEL"]
 
-kafka_endpoint = "localhost" + ":" + "8092"
-topic_in = "urlToScrapy"
-topic_out = "textToNER"
-complexity = 2
-debug_level = "INFO"
+# kafka_endpoint = "localhost" + ":" + "8092"
+# topic_in = "urlToScrapy"
+# topic_out = "textToNER"
+# complexity = 2
+# debug_level = "INFO"
 
 # gére le reactor de scrapy dans un thread différent
 setup()
