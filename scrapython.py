@@ -13,21 +13,26 @@ from scrapy.crawler import CrawlerProcess
 from scrapy.settings import Settings
 from twisted.internet.defer import inlineCallbacks
 
+from scrapy import signals
+from scrapy.utils.project import get_project_settings
+
+from scrapy.signalmanager import dispatcher
+
 from common import settings as my_settings
 from common.spiders import spiderthon
 
 # recuperation variable d'env
-kafka_endpoint = str(os.environ['KAFKA_IP']) + ":" + str(os.environ['KAFKA_PORT'])
-topic_in = str(os.environ['TOPIC_IN'])
-topic_out = str(os.environ['TOPIC_OUT'])
-complexity = int(os.environ['COMPLEXITY'])
-debug_level = os.environ["DEBUG_LEVEL"]
+# kafka_endpoint = str(os.environ['KAFKA_IP']) + ":" + str(os.environ['KAFKA_PORT'])
+# topic_in = str(os.environ['TOPIC_IN'])
+# topic_out = str(os.environ['TOPIC_OUT'])
+# complexity = int(os.environ['COMPLEXITY'])
+# debug_level = os.environ["DEBUG_LEVEL"]
 
-# kafka_endpoint = "localhost" + ":" + "8092"
-# topic_in = "urlToScrapy"
-# topic_out = "textToNER"
-# complexity = 1
-# debug_level = "INFO"
+kafka_endpoint = "localhost" + ":" + "8092"
+topic_in = "urlToScrapy"
+topic_out = "textToNER"
+complexity = 2
+debug_level = "INFO"
 
 # gére le reactor de scrapy dans un thread différent
 setup()
@@ -45,6 +50,10 @@ elif debug_level == "CRITICAL":
     logging.basicConfig(level=logging.CRITICAL)
 
 scrapython_acq_ended = False
+
+
+def crawler_results(signal, sender, item, response, spider):
+    results_crawl.append(item)
 
 
 @inlineCallbacks
@@ -77,6 +86,11 @@ producer = KafkaProducer(
     bootstrap_servers=[kafka_endpoint],
     value_serializer=lambda v: json.dumps(v).encode('utf-8'))
 
+results_crawl = []
+
+
+dispatcher.connect(crawler_results, signal=signals.item_passed)
+
 crawler_settings = Settings()
 crawler_settings.setmodule(my_settings)
 
@@ -91,52 +105,50 @@ for message in consumer:
     rslash = re.compile("^(\/.)")
 
     if 'complexity' not in message or (int(message['complexity']) <= int(complexity)):
-        for i in range(len(message['url'])):
-            urlList = []
-            urlList.append(message['url'][i])
-            urlCut = re.match("^((http|https):\/\/|(www\.|ftp\.))([\w_-]+((\.[\w_-]+)+))", urlList[0]).group(0)
+        try:
+            for url in message['url']:
+                urlList = []
+                urlList.append(url)
+                urlCut = re.match("^((http|https):\/\/|(www\.|ftp\.))([\w_-]+((\.[\w_-]+)+))", urlList[0]).group(0)
 
-            loop_urls(urlList)
+                loop_urls(urlList)  # TODO: selenium pour JS ?
 
-            while (scrapython_acq_ended == False):
-                time.sleep(1)
-            scrapyResult = {}
-            if "results.json":  # TODO: changer le mod, encoding='utf-8'e de sortie en stream
+                while (scrapython_acq_ended == False):
+                    time.sleep(1)
+                scrapyResult = {}  # TODO: changer le mod, encoding='utf-8'e de sortie en stream
+
                 textString = ''
 
-                with open("results.json", 'r', encoding='utf-8') as f:
-                    try:
-                        data = json.load(f)
-                        for text in data:
+                try:
+                    for text in results_crawl:
+                        if next(iter(text)) == 'text':
+                            textString = textString + " " + text['text']  # TODO y remplacer les ' par "
+                        elif next(iter(text)) == 'urls':
+                            # TODO ajouter if complexity
+                            targetUrl = text.get("urls", "")
+                            if re.match(r, text.get("urls", "")):
+                                if int(complexity) > 1:
+                                    if 'complexity' not in message:
+                                        complexityLevel = 2
+                                    else:
+                                        complexityLevel = int(message['complexity']) + 1
+                                    # si le resultat commence par un slash,
+                                    # on prend ce qu'il y a apres le slash et on le concatene à l'adresse urlCut
+                                    if re.match(rslash, text.get("urls", "")):
+                                        targetUrl = urlCut + "/" + text.get("urls", "").split("/", 1)[1]
+                                    # renvoie dans topic in pour retraitement par scrapython
 
-                            if next(iter(text)) == 'text':
-                                textString = textString + " " + text['text']  # TODO y remplacer les ' par "
-                            elif next(iter(text)) == 'urls':
-                                # TODO ajouter if complexity
-                                targetUrl = text.get("urls", "")
-                                if re.match(r, text.get("urls", "")):
-                                    if int(complexity) > 1:
-                                        if 'complexity' not in message:
-                                            complexityLevel = 2
-                                        else:
-                                            complexityLevel = int(message['complexity']) + 1
-                                        # si le resultat commence par un slash,
-                                        # on prend ce qu'il y a apres le slash et on le concatene à l'adresse urlCut
-                                        if re.match(rslash, text.get("urls", "")):
-                                            targetUrl = urlCut + "/" + text.get("urls", "").split("/", 1)[1]
-                                        # renvoie dans topic in pour retraitement par scrapython
-
-                                        producer.send(
-                                            topic_in,
-                                            value={'idBio': message['idBio'], 'url': [targetUrl], 'nom': message['nom'],
-                                                   'prenom': message['prenom'], 'complexity': complexityLevel})
-                    except Exception as e:
-                        logging.warning("got %s on json.load()" % e)
+                                    producer.send(
+                                        topic_in,
+                                        value={'idBio': message['idBio'], 'url': [targetUrl], 'nom': message['nom'],
+                                               'prenom': message['prenom'], 'complexity': complexityLevel})
+                except Exception as e:
+                    logging.warning("got %s on json.load()" % e)
 
                 scrapyResult.update([('url', urlList[0]), ('content', textString)])
                 scrapyResults.append(scrapyResult)
-
-            os.remove("results.json")
+        except Exception as e:
+            logging.error("scrapython failure %s" % e)
 
         value_to_send = json.dumps({'idBio': message['idBio'], 'scrapyResults': scrapyResults})
 

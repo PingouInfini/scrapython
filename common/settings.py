@@ -13,9 +13,9 @@ BOT_NAME = 'scrapython'
 
 SPIDER_MODULES = ['common.spiders']
 NEWSPIDER_MODULE = 'common.spiders'
-
-FEED_FORMAT = 'json'
-FEED_URI = 'results.json'
+#
+# FEED_FORMAT = 'json'
+# FEED_URI = 'results.json'
 FEED_EXPORT_ENCODING = 'UTF-8'
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
