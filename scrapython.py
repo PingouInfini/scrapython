@@ -14,8 +14,6 @@ from scrapy.settings import Settings
 from twisted.internet.defer import inlineCallbacks
 
 from scrapy import signals
-from scrapy.utils.project import get_project_settings
-
 from scrapy.signalmanager import dispatcher
 
 from common import settings as my_settings
@@ -31,7 +29,7 @@ debug_level = os.environ["DEBUG_LEVEL"]
 # kafka_endpoint = "localhost" + ":" + "8092"
 # topic_in = "urlToScrapy"
 # topic_out = "textToNER"
-# complexity = 2
+# complexity = 1
 # debug_level = "INFO"
 
 # gére le reactor de scrapy dans un thread différent
@@ -51,7 +49,7 @@ elif debug_level == "CRITICAL":
 
 scrapython_acq_ended = False
 
-
+# Permet de remplir une liste des résultats du scraping
 def crawler_results(signal, sender, item, response, spider):
     results_crawl.append(item)
 
@@ -87,8 +85,7 @@ producer = KafkaProducer(
     value_serializer=lambda v: json.dumps(v).encode('utf-8'))
 
 results_crawl = []
-
-
+# Call crawler_results avec la lib Signal pour recupèrer les résultats du scraping
 dispatcher.connect(crawler_results, signal=signals.item_passed)
 
 crawler_settings = Settings()
@@ -101,7 +98,10 @@ for message in consumer:
     logging.info("### Scrapython : reception d'un message ! " + str(message))
     scrapyResults = []
     complexityLevel = 1
+
+    # regex : détecte si la str commence par http.s:// ou un /
     r = re.compile("^(((http|https):\/\/)|(\/.))")
+    # regex : détecte si la str commence par un /
     rslash = re.compile("^(\/.)")
 
     if 'complexity' not in message or (int(message['complexity']) <= int(complexity)):
@@ -109,14 +109,17 @@ for message in consumer:
             for url in message['url']:
                 urlList = []
                 urlList.append(url)
+                # regex : détecte si la str est une adresse internet ou non
                 urlCut = re.match("^((http|https):\/\/|(www\.|ftp\.))([\w_-]+((\.[\w_-]+)+))", urlList[0]).group(0)
-
+                results_crawl = []
                 loop_urls(urlList)  # TODO: selenium pour JS ?
+
 
                 while (scrapython_acq_ended == False):
                     time.sleep(1)
-                scrapyResult = {}  # TODO: changer le mod, encoding='utf-8'e de sortie en stream
 
+
+                scrapyResult = {}
                 textString = ''
 
                 try:
@@ -136,8 +139,8 @@ for message in consumer:
                                     # on prend ce qu'il y a apres le slash et on le concatene à l'adresse urlCut
                                     if re.match(rslash, text.get("urls", "")):
                                         targetUrl = urlCut + "/" + text.get("urls", "").split("/", 1)[1]
-                                    # renvoie dans topic in pour retraitement par scrapython
 
+                                    # renvoie dans topic in pour retraitement par scrapython
                                     producer.send(
                                         topic_in,
                                         value={'idBio': message['idBio'], 'url': [targetUrl], 'nom': message['nom'],
@@ -147,10 +150,14 @@ for message in consumer:
 
                 scrapyResult.update([('url', urlList[0]), ('content', textString)])
                 scrapyResults.append(scrapyResult)
+
+                value_to_send = json.dumps({'idBio': message['idBio'], 'scrapyResults': scrapyResult})
+
+                producer.send(topic_out, value=value_to_send)
+
         except Exception as e:
             logging.error("scrapython failure %s" % e)
 
-        value_to_send = json.dumps({'idBio': message['idBio'], 'scrapyResults': scrapyResults})
-
-        producer.send(
-            topic_out, value=value_to_send)
+        # value_to_send = json.dumps({'idBio': message['idBio'], 'scrapyResults': scrapyResults})
+        #
+        # producer.send(topic_out, value=value_to_send)

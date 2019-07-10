@@ -6,6 +6,18 @@
 # https://doc.scrapy.org/en/latest/topics/spider-middleware.html
 
 from scrapy import signals
+from scrapy.http import HtmlResponse
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
+
+options = webdriver.ChromeOptions()
+options.add_argument('headless')
+options.add_argument('window-size=1200x600')
+
+driver = webdriver.Chrome(chrome_options=options)
 
 
 class ScrapythonSpiderMiddleware(object):
@@ -79,6 +91,10 @@ class ScrapythonDownloaderMiddleware(object):
         # - or raise IgnoreRequest: process_exception() methods of
         #   installed downloader middleware will be called
         return None
+        # driver.get(request.url)
+        #
+        # body = driver.page_source
+        # return HtmlResponse(driver.current_url, body=body, encoding='utf-8', request=request)
 
     def process_response(self, request, response, spider):
         # Called with the response returned from the downloader.
@@ -101,3 +117,5 @@ class ScrapythonDownloaderMiddleware(object):
 
     def spider_opened(self, spider):
         spider.logger.info('Spider opened: %s' % spider.name)
+
+
