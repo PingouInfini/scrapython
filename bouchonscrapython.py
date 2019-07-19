@@ -20,13 +20,30 @@ def main():
 
         logging.info(" Démarrage du bouchon ")
 
+        # Ce qu'on recoit de Googlethon
         producer = KafkaProducer(bootstrap_servers='localhost:8092', value_serializer=lambda v: json.dumps(v).encode('utf-8'))
-        tab=[
-            {'url': ['https://twitter.com/bobjouy', 'https://b0b.fr/', 'https://twitter.com/bobjouy', 'https://b0b.fr/']
-                , 'nom': 'bob', 'prenom': 'JOUY', 'idBio': '4344'}
-                #, 'https://b0b.fr/author/bob-jouy/', 'https://lokan.jp/2016/12/10/lettre-ouverte-bob-jouy-harcelement/', 'https://www.youtube.com/channel/UC0SvAbkS6HDP6_Jv8TjPGmw', 'http://i.trackr.fr/article-b0b-un-oeil-sur-bob-jouy', 'https://fr-fr.facebook.com/public/Bob-Jouy', 'https://www.denisqs.com/author/bob-jouy/', 'https://www.macg.co/ailleurs/2018/12/tesla-la-model-3-partir-de-53-500-eu-en-europe-104546', 'https://forums.automobile-propre.com/topic/suivi-des-commandes-et-livraisons-avec-des-morceaux-de-fake-news-dedans-13393/?page=131']
-
+        tab = [{'biographics': {
+                    'nom': 'Chirac',
+                    'prenom': 'Jacques',
+                    'idBio': '65568'
+                },
+                 'url': ['https://rugby-senart.fr/loisir/seniors/', 'http://clamartrugby92.fr/seniors-se-remettent'
+                                                                    '-route/',
+                         'http://clamartrugby92.fr/jeunes/cadets-u16/',
+                         'http://clamartrugby92.fr/victoire-des-cadets-teuliere-c/']
+            }
         ]
+
+        # {'nom': 'JOUY', 'prenom': 'bob', 'motclef': 'rugby', 'ponderation': '3', 'idBio': '65568',
+        # 'url': ['http://clamartrugby92.fr/seniors-se-remettent-route/',
+        # 'http://clamartrugby92.fr/jeunes/cadets-u16/', 'http://clamartrugby92.fr/victoire-des-cadets-teuliere-c/',
+        # 'https://rugby.scuf.org/2019/04/02/jean-hospital/',
+        # 'http://clamartrugby92.fr/seniors-federale-2-le-maintien-compromis/',
+        # 'https://www.aslagnyrugby.net/La-fete-du-rugby-en-1979.html',
+        # 'http://clamartrugby92.fr/le-club-clamart-rugby-92/',
+        # 'http://clamartrugby92.fr/juniors-victoire-bout-suspens-a-houilles/',
+        # 'https://rugby-senart.fr/loisir/seniors/', 'http://clamartrugby92.fr/ecole-de-rugby/minimes-u14/']}
+
         for i in range(len(tab)):
             producer.send('urlToScrapy', value=tab[i])
             sleep(0.5)
@@ -36,6 +53,7 @@ def main():
     finally:
         logging.info(" Fin du bouchon ")
         exit(0)
+
 
 if __name__ == '__main__':
     main()

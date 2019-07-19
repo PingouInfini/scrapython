@@ -8,7 +8,7 @@ def main():
     try:
         logging.basicConfig(level=logging.ERROR)
         consumer = KafkaConsumer(
-            'textToNER',
+            'scrapyToCompara',
             bootstrap_servers='localhost:8092',
             group_id='consumer',
             auto_offset_reset='latest',

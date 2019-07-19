@@ -8,9 +8,11 @@ from scrapy.item import Item, Field
 
 import scrapy
 
+
 class ScrapythonItem(Item):
     # define the fields for your item here like:
     title = scrapy.Field()
     text = scrapy.Field()
-    urls = scrapy.Field()
+    url = scrapy.Field()
+    img_url = scrapy.Field()
 #    pass

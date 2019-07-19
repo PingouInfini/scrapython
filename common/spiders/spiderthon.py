@@ -1,7 +1,5 @@
 import scrapy
 from bs4 import BeautifulSoup
-import os
-
 from common.items import ScrapythonItem
 
 
@@ -15,18 +13,21 @@ class spiderthon(scrapy.Spider):
     # Méthode qui parse chaque url à crawler, fournie ci-dessus
     def parse(self, response):
 
-        for (h_n) in response.xpath('//h1 | //h2 | //h3 | //h4 | //h5 | //h6 ').getall():
+        for (h_n) in response.xpath('//body//text()').getall():
             soup = BeautifulSoup(h_n, 'html.parser')
-            just_text = soup.get_text()
-            yield ScrapythonItem(title=just_text)
-
-        for (txt) in response.xpath('//p | //span').getall():
-            soup = BeautifulSoup(txt, 'html.parser')
-            just_text = soup.get_text()
-            yield ScrapythonItem(text=just_text)
+            just_text = soup.get_text().strip()
+            if just_text == '':
+                continue
+            else:
+                yield ScrapythonItem(text=just_text)
 
         for href in response.xpath('//a/@href').getall():
-            yield ScrapythonItem(urls=href)
+            yield ScrapythonItem(url=href)
+
+        for img in response.xpath('//img/@src').getall():
+            # urlimg = response.urljoin(img)
+            # urlparsed = urlparse(img).geturl()
+            yield ScrapythonItem(img_url=img)
 
             # Décommenter si l'on veut télécharger les pages HTML associées aux URLs
             # page = response.url.split("/")[-2] .re("^(http|https):\/\/")
