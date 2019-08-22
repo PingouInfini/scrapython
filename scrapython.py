@@ -2,20 +2,20 @@
 
 import json
 import logging
-import os
-import time
 import re
-import requests
+import time
 
+import requests
 from crochet import setup
 from kafka import KafkaConsumer
 from kafka import KafkaProducer
+from scrapy import signals
 from scrapy.crawler import CrawlerProcess
 from scrapy.settings import Settings
-from twisted.internet.defer import inlineCallbacks
-
-from scrapy import signals
 from scrapy.signalmanager import dispatcher
+from twisted.internet.defer import inlineCallbacks
+from elasticsearch import Elasticsearch
+import elastic
 
 from common import settings as my_settings
 from common.spiders import spiderthon
@@ -24,17 +24,20 @@ from common.spiders import spiderthon
 # kafka_endpoint = str(os.environ['KAFKA_IP']) + ":" + str(os.environ['KAFKA_PORT'])
 # topic_in = str(os.environ['TOPIC_IN'])
 # topic_out = str(os.environ['TOPIC_OUT'])
-# complexity = int(os.environ['COMPLEXITY'])
+# depth = int(os.environ['DEPTH'])
+# url_get_dico = str(os.environ['DICO'])
 # debug_level = os.environ["DEBUG_LEVEL"]
 
 kafka_endpoint = "localhost" + ":" + "8092"
 topic_in = "urlToScrapy"
 topic_out_compara = "scrapyToCompara"
 topic_out_coli = "scrapyToColissi"
-complexity = 1
+topic_out_googlethon = "housToGoogle"
+depth = 1
+url_get_dico = "http://localhost:9876/dictionnaire"
 debug_level = "INFO"
 
-# gére le reactor de scrapy dans un thread différent
+# gère le reactor de scrapy dans un thread différent
 setup()
 
 logging.basicConfig(level=logging.INFO)
@@ -58,14 +61,14 @@ def crawler_results(signal, sender, item, response, spider):
 
 
 # Renvoie dans une file kakfa les urls à crawler en fonction de la complexité
-def complexitySend(text, r, complexity, rslash, message, urlCut, topic_in):
+def depthSend(text, r, depth, rslash, message, urlCut, topic_in):
     targetUrl = text.get("url", "")
     if re.match(r, text.get("url", "")):
-        if int(complexity) > 1:
-            if 'complexity' not in message:
-                complexityLevel = 2
+        if int(depth) > 1:
+            if 'depth' not in message:
+                depthLevel = 2
             else:
-                complexityLevel = int(message['complexity']) + 1
+                depthLevel = int(message['depth']) + 1
             # si le resultat commence par un slash,
             # on prend ce qu'il y a apres le slash et on le concatene à l'adresse urlCut
             if re.match(rslash, text.get("url", "")):
@@ -75,14 +78,10 @@ def complexitySend(text, r, complexity, rslash, message, urlCut, topic_in):
             producer.send(
                 topic_in,
                 value={'idBio': message['idBio'], 'url': [targetUrl], 'nom': message['nom'],
-                       'prenom': message['prenom'], 'complexity': complexityLevel})
+                       'prenom': message['prenom'], 'depth': depthLevel})
 
 
 class Dictionnaire:
-    # dico = [
-    #     {'sport': [{'rugby': '3'}, {'football': '8'}, {'tennis': '6'}]},
-    #     {'musique': [{'jazz': '2'}, {'rap': '8'}, {'rock': '4'}]}
-    # ]
     dico = ""
 
     # Recupère le dico aupres de Colissithon
@@ -90,8 +89,7 @@ class Dictionnaire:
         logging.debug("Asking for Colissithon's dico")
 
         with requests.Session() as session:
-            url_get = "http://localhost:9876/dictionnaire"
-            basic_get_response = session.get(url=url_get)
+            basic_get_response = session.get(url=url_get_dico)
             if basic_get_response.ok:
                 j_data = json.loads(basic_get_response.content.decode('utf-8'))
                 self.dico = j_data
@@ -142,79 +140,135 @@ for message in consumer:
     message = message.value
     logging.info("### Scrapython : reception d'un message ! " + str(message))
     scrapyResults = []
-    complexityLevel = 1
-    prenom_nom = message['biographics'].get('nom') + " " + message['biographics'].get('prenom')
+    depthLevel = 1
+    nom_prenom = message['biographics'].get('nom') + " " + message['biographics'].get('prenom')
 
     # regex : détecte si la str commence par http.s:// ou un /
     r = re.compile("^(((http|https):\/\/)|(\/.))")
     # regex : détecte si la str commence par un /
     rslash = re.compile("^(\/.)")
 
-    if 'complexity' not in message or (int(message['complexity']) <= int(complexity)):
-        try:
-            for url in message['url']:
-                urlList = []
+    if 'depth' not in message or (int(message['depth']) <= int(depth)):
+        for url in message['url']:
+            try:
                 img_url_list = []
-                urlList.append(url)
-                # regex : détecte si la str est une adresse internet ou non
-                urlCut = re.match("^((http|https):\/\/|(www\.|ftp\.))([\w_-]+((\.[\w_-]+)+))", urlList[0]).group(0)
                 results_crawl = []
-                loop_urls(urlList)  # TODO: selenium pour JS ?
-
-                while not scrapython_acq_ended:
-                    time.sleep(1)
-
                 scrapyResult = {}
                 textString = ''
                 listMotClefHit = []
-                try:
-                    for text in results_crawl:
-                        if next(iter(text)) == 'text':
-                            textString = textString + " " + text['text']  # TODO y remplacer les ' par "
+                dicoMotClefPhraseHit = {}
+                idBio = message['biographics'].get('idBio')
+                nom = message['biographics'].get('nom')
+                prenom = message['biographics'].get('prenom')
+                frequence = 0
+                url_visited = False
 
-                        elif next(iter(text)) == 'url': # TODO doublon url
-                            complexitySend(text, r, complexity, rslash, message, urlCut, topic_in)
+                # Nous avons besoin d'envoyer une liste d'URL
+                urlList = []
+                urlList.append(url)
+                # regex : coupe l'url pour avoir que le nom de domaine
+                urlCut = re.match("^((http|https):\/\/|(www\.|ftp\.))([\w_-]+((\.[\w_-]+)+))", urlList[0]).group(0)
 
-                        elif next(iter(text)) == 'img_url':
-                            img_url_list.append(text['img_url'])
+                search_object = \
+                    {
+                        "query": {
+                            "multi_match" : {
+                                "query":      idBio+" "+urlList[0],
+                                "type":       "cross_fields",
+                                "fields":     ["idBio", "item"],
+                                "operator":   "and"
+                            }
+                        }
+                    }
 
-                except Exception as e:
-                    logging.warning("got %s on json.load()" % e)
+                _es = elastic.connect_elasticsearch()
+                if elastic.create_index(_es, 'urls'):
+                    results_search_elastic = elastic.search(_es, 'urls', json.dumps(search_object))
+                    if not results_search_elastic['hits'].get('total'):
+                        out = elastic.store_record(_es, 'urls', json.dumps({"idBio": idBio, "item": urlList[0]}))
+                    else:
+                        url_visited = True
+                        logging.info('URL already crawled with this idBio!')
+                if not url_visited:
+                    # TODO se poser la question des "dates" liée au traitment d'une URL, et forcer le traitement
+                    # si date > 24h (paramètrable: -1=infini // 0=osef des doublons // x= à respecter)
 
-                if prenom_nom in textString: # TODO Gestion de vérif de nom/prenom dans le texte
+                    loop_urls(urlList)  # TODO: selenium pour JS ?
+
+                    # Attendre la fin du scraping
+                    while not scrapython_acq_ended:
+                        time.sleep(1)
+
+                    try:
+                        for text in results_crawl:
+                            if next(iter(text)) == 'text':
+                                textString = textString + " " + text['text']  # TODO y remplacer les ' par "
+
+                            elif next(iter(text)) == 'url':  # TODO doublon url
+                                depthSend(text, r, depth, rslash, message, urlCut, topic_in)
+
+                            elif next(iter(text)) == 'img_url':
+                                img_url_list.append(text['img_url'])
+
+                    except Exception as e:
+                        logging.warning("got %s on json.load()" % e)
+
+                    # TODO Gestion de vérif de nom/prenom dans le texte
+                    # TODO prise en compte de l'URL si le nom, ou le prénom, ou une combinaison (Mr Chirac?) apparait
+                    # if nom_prenom in textString:
                     for theme in dico.get_dico():
                         for themeName, listMotClefsPond in theme.items():
                             for motClefsPond in listMotClefsPond:
                                 motclef = next(iter(motClefsPond))
 
+                                # pondération = int(motClefsPond.get(motclef))
+
                                 ### position mot dans le texte concaténé
-                                position = textString.find(motclef) ## TODO Ajout frequence
+                                position = textString.find(motclef)
+
+                                frequence = textString.count(motclef)
+
                                 if position != -1:
+                                    phrase = re.findall(r"([^.]*?"+motclef+"[^.]*\.)", textString)
                                     listMotClefHit.append(motclef)
-                                    ## TODO: recuperer bout de text avec motclef
-                                    ## TODO: renvoie à googlethon nom + prenom + motclef
-                if listMotClefHit:
-                    value_to_send = {
-                        'biographics': message['biographics'],
-                        'urlsResults': {
-                            'url': url,
-                            'listUrlImage': img_url_list,
-                            'frequence': 1,
-                            'motclefHit': listMotClefHit,
-                            'imageHit': 0
+                                    dicoMotClefPhraseHit[motclef] = phrase
+                                    value_to_send_to_googlethon = {
+                                        'idBio': message['biographics'].get('idBio'),
+                                        'nom': message['biographics'].get('nom'),
+                                        'prenom': message['biographics'].get('prenom'),
+                                        'motclef': motclef
+                                    }
+                                    search_object = \
+                                        {
+                                            "query": {
+                                                "multi_match": {
+                                                    "query":      idBio + " " + motclef,
+                                                    "type":       "cross_fields",
+                                                    "fields":     ["idBio", "item"],
+                                                    "operator":   "and"
+                                                }
+                                            }
+                                        }
+                                    _es = elastic.connect_elasticsearch()
+                                    if elastic.create_index(_es, 'motclefs'):
+                                        results_search_elastic = elastic.search(_es, 'motclefs', json.dumps(search_object))
+                                        if not results_search_elastic['hits'].get('total'):
+                                            out = elastic.store_record(_es, 'motclefs', json.dumps({"idBio": idBio, "item": motclef}))
+                                            producer.send(topic_out_googlethon, value=value_to_send_to_googlethon)
+                    if listMotClefHit:
+                        value_to_send = {
+                            'biographics': message['biographics'],
+                            'urlsResults': {
+                                'url': url,
+                                'listUrlImage': img_url_list,
+                                'frequence': frequence,
+                                'motclefHit': listMotClefHit,
+                                'imageHit': 0
+                            }
                         }
-                    }
 
-                    ## verif si une photo correspond, envoi à comparathon
-                    producer.send(topic_out_compara, value=value_to_send)
+                        ## verif si une photo correspond, envoi à comparathon
+                        producer.send(topic_out_compara, value=value_to_send)
 
-                # scrapyResult.update([('url', urlList[0]), ('content', textString)])
-                # scrapyResults.append(scrapyResult)
-                #
-                # value_to_send = json.dumps({'idBio': message['idBio'], 'scrapyResults': scrapyResult})
-
-                # producer.send(topic_out_compara, value=value_to_send)
-
-        except Exception as e:
-            logging.error("scrapython failure %s" % e)
-
+            except Exception as e:
+                logging.error("scrapython failure %s" % e)

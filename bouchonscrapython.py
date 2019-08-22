@@ -27,7 +27,7 @@ def main():
                     'prenom': 'Jacques',
                     'idBio': '65568'
                 },
-                 'url': ['https://rugby-senart.fr/loisir/seniors/', 'http://clamartrugby92.fr/seniors-se-remettent'
+                 'url': ['/loisir/seniors/', 'http://clamartrugby92.fr/seniors-se-remettent'
                                                                     '-route/',
                          'http://clamartrugby92.fr/jeunes/cadets-u16/',
                          'http://clamartrugby92.fr/victoire-des-cadets-teuliere-c/']

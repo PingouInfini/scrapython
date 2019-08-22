@@ -25,9 +25,9 @@ class spiderthon(scrapy.Spider):
             yield ScrapythonItem(url=href)
 
         for img in response.xpath('//img/@src').getall():
-            # urlimg = response.urljoin(img)
+            urlimg = response.urljoin(img)
             # urlparsed = urlparse(img).geturl()
-            yield ScrapythonItem(img_url=img)
+            yield ScrapythonItem(img_url=urlimg)
 
             # Décommenter si l'on veut télécharger les pages HTML associées aux URLs
             # page = response.url.split("/")[-2] .re("^(http|https):\/\/")
