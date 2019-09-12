@@ -3,12 +3,17 @@ services:
     scrapython:
         build:
             context: ./context/
-        image: reachhubcorp/scrapython:latest
+        # image: reachhubcorp/scrapython:latest
         container_name: scrapython
         environment:
           KAFKA_IP: "${ipkafka}"
           KAFKA_PORT: 8092
-          COMPLEXITY: 1
+          DEPTH: 1
           TOPIC_IN: urlToScrapy
-          TOPIC_OUT: textToNER
+          TOPIC_OUT_COMPARA: scrapyToCompara
+          TOPIC_OUT_GOOGLETHON: housToGoogle
+          DICO_IP: "${dicoip}"
+          DICO_PORT: "${dicoport}"
+          DICO_PATH: "${dicopath}"
           DEBUG_LEVEL: INFO
+          ES_IP: "${esip}"

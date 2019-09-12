@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 import re
 import time
 
@@ -14,27 +15,27 @@ from scrapy.crawler import CrawlerProcess
 from scrapy.settings import Settings
 from scrapy.signalmanager import dispatcher
 from twisted.internet.defer import inlineCallbacks
-from elasticsearch import Elasticsearch
-import elastic
 
+import elastic
 from common import settings as my_settings
 from common.spiders import spiderthon
 
 # recuperation variable d'env
 # kafka_endpoint = str(os.environ['KAFKA_IP']) + ":" + str(os.environ['KAFKA_PORT'])
 # topic_in = str(os.environ['TOPIC_IN'])
-# topic_out = str(os.environ['TOPIC_OUT'])
+# topic_out_compara = str(os.environ['TOPIC_OUT_COMPARA'])
+# topic_out_googlethon = str(os.environ['TOPIC_OUT_GOOGLETHON'])
 # depth = int(os.environ['DEPTH'])
-# url_get_dico = str(os.environ['DICO'])
+# url_get_dico = "http://" + str(os.environ['DICO_IP']).replace("\"", "") + ":" + \
+#                str(os.environ['DICO_PORT']).replace("\"", "") + "/" + str(os.environ['DICO_PATH']).replace("\"", "")
 # debug_level = os.environ["DEBUG_LEVEL"]
 
 kafka_endpoint = "localhost" + ":" + "8092"
 topic_in = "urlToScrapy"
 topic_out_compara = "scrapyToCompara"
-topic_out_coli = "scrapyToColissi"
 topic_out_googlethon = "housToGoogle"
 depth = 1
-url_get_dico = "http://localhost:9876/dictionnaire"
+url_get_dico = "http://192.168.0.9:9876/dictionnaire"
 debug_level = "INFO"
 
 # gère le reactor de scrapy dans un thread différent
@@ -155,8 +156,9 @@ for message in consumer:
                 results_crawl = []
                 scrapyResult = {}
                 textString = ''
-                listMotClefHit = []
+                listThemeMotClefHit = []
                 dicoMotClefPhraseHit = {}
+                points = 0
                 idBio = message['biographics'].get('idBio')
                 nom = message['biographics'].get('nom')
                 prenom = message['biographics'].get('prenom')
@@ -204,7 +206,7 @@ for message in consumer:
                             if next(iter(text)) == 'text':
                                 textString = textString + " " + text['text']  # TODO y remplacer les ' par "
 
-                            elif next(iter(text)) == 'url':  # TODO doublon url
+                            elif next(iter(text)) == 'url':
                                 depthSend(text, r, depth, rslash, message, urlCut, topic_in)
 
                             elif next(iter(text)) == 'img_url':
@@ -216,54 +218,61 @@ for message in consumer:
                     # TODO Gestion de vérif de nom/prenom dans le texte
                     # TODO prise en compte de l'URL si le nom, ou le prénom, ou une combinaison (Mr Chirac?) apparait
                     # if nom_prenom in textString:
-                    for theme in dico.get_dico():
-                        for themeName, listMotClefsPond in theme.items():
-                            for motClefsPond in listMotClefsPond:
-                                motclef = next(iter(motClefsPond))
+                    for theme in dico.get_dico()["theme"]:
+                        themeName = theme["name"]
+                        listMotClefsPond = theme["motclef"]
+                        for motClefsPond in listMotClefsPond:
+                            motclef = motClefsPond["clef"]
 
-                                # pondération = int(motClefsPond.get(motclef))
 
-                                ### position mot dans le texte concaténé
-                                position = textString.find(motclef)
+                            ### 10% de la pond pour la liste de points.
 
-                                frequence = textString.count(motclef)
+                            ### position mot dans le texte concaténé
+                            position = textString.find(motclef)  # # # TODO trouver mot seul ou collé ?
 
-                                if position != -1:
-                                    phrase = re.findall(r"([^.]*?"+motclef+"[^.]*\.)", textString)
-                                    listMotClefHit.append(motclef)
-                                    dicoMotClefPhraseHit[motclef] = phrase
-                                    value_to_send_to_googlethon = {
-                                        'idBio': message['biographics'].get('idBio'),
-                                        'nom': message['biographics'].get('nom'),
-                                        'prenom': message['biographics'].get('prenom'),
-                                        'motclef': motclef
-                                    }
-                                    search_object = \
-                                        {
-                                            "query": {
-                                                "multi_match": {
-                                                    "query":      idBio + " " + motclef,
-                                                    "type":       "cross_fields",
-                                                    "fields":     ["idBio", "item"],
-                                                    "operator":   "and"
-                                                }
+                            frequence = textString.count(motclef)
+
+                            if position != -1:
+                                phrase = re.findall(r"([^.]*?"+motclef+"[^.]*\.)", textString)
+
+                                ponderation = int(motClefsPond["pond"])
+                                points = points + ponderation
+                                themeTrigramme = themeName[:3].upper()
+                                listThemeMotClefHit.append(themeTrigramme+"."+motclef)
+                                dicoMotClefPhraseHit[motclef] = phrase
+                                value_to_send_to_googlethon = {
+                                    'idBio': message['biographics'].get('idBio'),
+                                    'nom': message['biographics'].get('nom'),
+                                    'prenom': message['biographics'].get('prenom'),
+                                    'motclef': motclef
+                                }
+                                search_object = \
+                                    {
+                                        "query": {
+                                            "multi_match": {
+                                                "query":      idBio + " " + motclef,
+                                                "type":       "cross_fields",
+                                                "fields":     ["idBio", "item"],
+                                                "operator":   "and"
                                             }
                                         }
-                                    _es = elastic.connect_elasticsearch()
-                                    if elastic.create_index(_es, 'motclefs'):
-                                        results_search_elastic = elastic.search(_es, 'motclefs', json.dumps(search_object))
-                                        if not results_search_elastic['hits'].get('total'):
-                                            out = elastic.store_record(_es, 'motclefs', json.dumps({"idBio": idBio, "item": motclef}))
-                                            producer.send(topic_out_googlethon, value=value_to_send_to_googlethon)
-                    if listMotClefHit:
+                                    }
+                                _es = elastic.connect_elasticsearch()
+                                if elastic.create_index(_es, 'motclefs'):
+                                    results_search_elastic = elastic.search(_es, 'motclefs', json.dumps(search_object))
+                                    if not results_search_elastic['hits'].get('total'):
+                                        out = elastic.store_record(_es, 'motclefs', json.dumps({"idBio": idBio, "item": motclef}))
+                                        producer.send(topic_out_googlethon, value=value_to_send_to_googlethon)
+                    if listThemeMotClefHit:
                         value_to_send = {
                             'biographics': message['biographics'],
                             'urlsResults': {
                                 'url': url,
                                 'listUrlImage': img_url_list,
                                 'frequence': frequence,
-                                'motclefHit': listMotClefHit,
-                                'imageHit': 0
+                                'listThemeMotclefHit': listThemeMotClefHit,
+                                'imageHit': 0,
+                                'points': points
                             }
                         }
 
@@ -272,3 +281,4 @@ for message in consumer:
 
             except Exception as e:
                 logging.error("scrapython failure %s" % e)
+

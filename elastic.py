@@ -2,10 +2,13 @@ import json
 from time import sleep
 from elasticsearch import Elasticsearch
 import logging
+import os
+
+es_endpoint = str(os.environ['ES_IP'])
 
 
 def connect_elasticsearch():
-    _es = Elasticsearch([{'host': 'localhost', 'port': 9200}])
+    _es = Elasticsearch([{'host': es_endpoint, 'port': 9200}])
     if _es.ping():
         print('Yay Connect')
     else:

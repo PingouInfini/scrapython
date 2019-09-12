@@ -2,3 +2,4 @@ scrapy
 bs4
 crochet
 kafka-python
+elasticsearch
