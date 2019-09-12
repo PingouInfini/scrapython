@@ -4,7 +4,12 @@ from elasticsearch import Elasticsearch
 import logging
 import os
 
+<<<<<<< HEAD
 es_endpoint = str(os.environ['ES_IP'])
+=======
+# es_endpoint = str(os.environ['ES_IP'])
+es_endpoint = "localhost"
+>>>>>>> renvoie idDictionary dans fil kafka
 
 
 def connect_elasticsearch():
