@@ -23,22 +23,22 @@ from common import settings as my_settings
 from common.spiders import spiderthon
 
 # recuperation variable d'env
-# kafka_endpoint = str(os.environ['KAFKA_IP']) + ":" + str(os.environ['KAFKA_PORT'])
-# topic_in = str(os.environ['TOPIC_IN'])
-# topic_out_compara = str(os.environ['TOPIC_OUT_COMPARA'])
-# topic_out_googlethon = str(os.environ['TOPIC_OUT_GOOGLETHON'])
-# depth = int(os.environ['DEPTH'])
-# url_get_dico = "http://" + str(os.environ['DICO_IP']).replace("\"", "") + ":" + \
-#                str(os.environ['DICO_PORT']).replace("\"", "") + "/" + str(os.environ['DICO_PATH']).replace("\"", "")
-# debug_level = os.environ["DEBUG_LEVEL"]
+kafka_endpoint = str(os.environ['KAFKA_IP']) + ":" + str(os.environ['KAFKA_PORT'])
+topic_in = str(os.environ['TOPIC_IN'])
+topic_out_compara = str(os.environ['TOPIC_OUT_COMPARA'])
+topic_out_googlethon = str(os.environ['TOPIC_OUT_GOOGLETHON'])
+depth = int(os.environ['DEPTH'])
+url_get_dico = "http://" + str(os.environ['DICO_IP']).replace("\"", "") + ":" + \
+               str(os.environ['DICO_PORT']).replace("\"", "") + "/" + str(os.environ['DICO_PATH']).replace("\"", "")
+debug_level = os.environ["DEBUG_LEVEL"]
 
-kafka_endpoint = "localhost" + ":" + "8092"
-topic_in = "urlToScrapy"
-topic_out_compara = "scrapyToCompara"
-topic_out_googlethon = "housToGoogle"
-depth = 1
-url_get_dico = "http://192.168.0.9:9876/dictionary"
-debug_level = "INFO"
+# kafka_endpoint = "localhost" + ":" + "8092"
+# topic_in = "urlToScrapy"
+# topic_out_compara = "scrapyToCompara"
+# topic_out_googlethon = "housToGoogle"
+# depth = 1
+# url_get_dico = "http://192.168.0.9:9876/dictionary"
+# debug_level = "INFO"
 
 # gère le reactor de scrapy dans un thread différent
 setup()
