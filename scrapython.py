@@ -5,6 +5,7 @@ import logging
 import os
 import re
 import time
+import unicodedata
 
 import requests
 from crochet import setup
@@ -16,7 +17,6 @@ from scrapy.settings import Settings
 from scrapy.signalmanager import dispatcher
 from twisted.internet.defer import inlineCallbacks
 from urllib.parse import urlparse
-
 
 import elastic
 from common import settings as my_settings
@@ -58,6 +58,7 @@ elif debug_level == "CRITICAL":
 scrapython_acq_ended = False
 
 
+
 # Permet de remplir une liste des résultats du scraping
 def crawler_results(signal, sender, item, response, spider):
     results_crawl.append(item)
@@ -94,6 +95,9 @@ def depthSend(text, r, depthLevel, rslash, message, urlCut, topic_in):
                         "depthLevel": depthLevel
                     })
 
+
+def strToNormalized(text):
+    return unicodedata.normalize('NFD', str(text)).encode('ascii', 'ignore').lower().decode("utf-8")
 
 
 class Dictionnaire:
@@ -231,6 +235,7 @@ for message in consumer:
                     except Exception as e:
                         logging.warning("got %s on json.load()" % e)
 
+                    textStringNormalized = strToNormalized(textString)
                     # TODO Gestion de vérif de nom/prenom dans le texte
                     # TODO prise en compte de l'URL si le nom, ou le prénom, ou une combinaison (Mr Chirac?) apparait
                     # if nom_prenom in textString:
@@ -238,21 +243,22 @@ for message in consumer:
                         themeName = theme["name"]
                         listMotClefsPond = theme["motclef"]
                         for motClefsPond in listMotClefsPond:
-                            motclef = motClefsPond["clef"]
+
+                            motclef = strToNormalized(motClefsPond["clef"])
 
                             if re.match("^((http|https):\/\/|(www\.|ftp\.))([\w_-]+((\.[\w_-]+)+))", motclef):
                                 motclefFound = (urlparse(url).hostname == urlparse(motclef).hostname)
                             else:
                                 ### position mot dans le texte concaténé
-                                position = textString.find(motclef)  # # # TODO trouver mot seul ou collé ?
+                                position = textStringNormalized.find(motclef)  # # # TODO trouver mot seul ou collé ?
                                 motclefFound = (position != -1)
 
                             ### 10% de la pond pour la liste de points.
 
-                            frequence = textString.count(motclef)
+                            frequence = textStringNormalized.count(strToNormalized(prenom + " " + nom))
 
                             if motclefFound:
-                                phrase = re.findall(r"([^.]*?" + motclef + "[^.]*\.)", textString)
+                                phrase = re.findall(r"([^.]*?" + motclef + "[^.]*\.)", textStringNormalized)
 
                                 ponderation = int(motClefsPond["pond"])
                                 points = points + ponderation
@@ -268,7 +274,6 @@ for message in consumer:
                                     'motclef': motclef,
                                     'idDictionary': message['idDictionary'],
                                     'depthLevel': depth
-
                                 }
                                 search_object = \
                                     {

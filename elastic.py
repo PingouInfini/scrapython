@@ -11,9 +11,9 @@ es_endpoint = str(os.environ['ES_IP'])
 def connect_elasticsearch():
     _es = Elasticsearch([{'host': es_endpoint, 'port': 9200}])
     if _es.ping():
-        print('Yay Connect')
+        logging.info('Yay Connect')
     else:
-        print('Awww it could not connect!')
+        logging.info('Awww it could not connect!')
     return _es
 
 
