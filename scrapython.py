@@ -92,7 +92,8 @@ def depthSend(text, r, depthLevel, rslash, message, urlCut, topic_in):
                         "url": [targetUrl],
                         "idDictionary": message['idDictionary'],
                         "depthUrl": newDepthUrl,
-                        "depthLevel": depthLevel
+                        "depthLevel": depthLevel,
+                        "numberUrl": message['numberUrl']
                     })
 
 
@@ -273,7 +274,8 @@ for message in consumer:
                                     'prenom': message['biographics'].get('prenom'),
                                     'motclef': motclef,
                                     'idDictionary': message['idDictionary'],
-                                    'depthLevel': depth
+                                    'depthLevel': depth,
+                                    'numberUrl': message['numberUrl']
                                 }
                                 search_object = \
                                     {
